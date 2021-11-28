@@ -37,8 +37,9 @@ var wscounter = 0;
 var socket;
 
 function debug(str) {
-    var debugDiv = document.getElementById('debug');
-    debugDiv.innerHTML = "" + str;
+    const debugDiv = document.getElementById('debug');
+    const output = "" + str;
+    debugDiv.innerHTML = output.slice(0, 150) + `${output.length > 20 ? "...and many more. use console.log instead." : ''}`
 }
 debug("Test");
 
@@ -72,10 +73,12 @@ function prepEntity(entity) {
 function clearFrame() {
     with(context) {
 	moveTo(0,0);
-	fillStyle = "#000";
+    const gradient = createLinearGradient(0, 0, 0, H)
+    gradient.addColorStop(1, '#182746')
+    gradient.addColorStop(0, '#2878b8')
+	fillStyle = gradient
 	fillRect(0,0,W,H);
     }
-
 }
 
 // This actually draws the frame
@@ -124,8 +127,14 @@ function getPosition(e) {
 function addEntity(entity, data) {
     world[entity] = data;
     drawNextFrame(); // (but should we?)
-    //XXX: Send a XHTML Request that updates the entity you just modified!
+
+    socket.send(JSON.stringify(
+        {
+            [entity]: data
+        }
+    ))
 }
+
 var counter = 0;
 function addEntityWithoutName(data) {
     var name = "X"+(counter++)%100;
@@ -231,16 +240,16 @@ mouse = (function() {
 // Add the application specific mouse listeners!
 //XXX: TODO Make these prettier!
 mouse.mousedowners.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'blue'});
+    addEntityWithoutName({'x':x,'y':y,'colour':'#99ffff'});
 });
 
 mouse.mouseuppers.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'red'});
+    addEntityWithoutName({'x':x,'y':y,'colour':'#00ddff'});
 });
 
 mouse.mousedraggers.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'green',
-                          'radius':10});
+    addEntityWithoutName({'x':x,'y':y,'colour':'#88bbff',
+                          'radius':20});
 });
 
 
@@ -253,7 +262,7 @@ function wsSetup() {
     var url = "ws://"+host+"/subscribe";   
     socket = new WebSocket(url);
     socket.onopen = function() {
-        //XXX: TODO What are you going to do here?
+        // do nothing. server will give us something to start with
     };
     socket.onerror = function(msg) {
         debug("WebSocket Error:" + msg.data);
@@ -261,7 +270,12 @@ function wsSetup() {
     socket.onmessage = function(msg) {  
         try {
             debug("WebSocket Recv:" + msg.data);
-            //XXX: TODO What are you going to do here?            
+            const data = JSON.parse(msg.data)
+
+            if (data) {
+                world = {...world, ...data} 
+                drawNextFrame()
+            }
         } catch (e) {
             alert("socket on message: " + e);
         }
